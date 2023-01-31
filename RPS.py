@@ -8,6 +8,9 @@ import numpy as np
 
 from collections import deque
 
+
+#Look at input shape
+
 rpsMap = {
     'R':0,
     'P':1,
@@ -21,6 +24,8 @@ def winnerAction(counter):
 
 def rewardVector(opponentPlay):
     vector = [0.0,0.0,0.0]
+    if(opponentPlay==''):
+        opponentPlay='R'
     for i in range(-1,2):
         vector[(rpsMap[opponentPlay]+i) % 3] = i*1
     return vector
@@ -42,15 +47,18 @@ def initState(n):
     
 
     model = keras.Sequential()
-    model.add(keras.layers.Dense(64, input_shape=(2*n,), activation='relu'))
+    #model.add(keras.layers.Dense(64, input_shape=(2*n), activation='relu'))
+    model.add(keras.layers.Dense(64,  activation='relu', input_shape=(2*n,)))
+
     model.add(keras.layers.Dense(64, activation='relu'))
     model.add(keras.layers.Dense(3, activation='linear'))
 
     prev_moves_you = deque(maxlen=n)
     prev_moves_opponent = deque(maxlen=n)
     optimizer = tf.optimizers.Adam()
-    model.compile(optimizer= optimizer, loss='mean_squared_error')
     model.build()
+    model.compile(optimizer= optimizer, loss='mean_squared_error')
+    model.summary()
     return {'prev_moves_you': prev_moves_you,
             'prev_moves_opponent': prev_moves_opponent,
             'model': model,
@@ -62,36 +70,52 @@ def initState(n):
 
 
 def play(prev,state):
+    if prev != '' :
+        state['prev_moves_opponent'].append(rpsMap[prev])
+
+    input_data = np.concatenate((state['prev_moves_you'], state['prev_moves_opponent']))
+    #input_data_tensor = tf.constant(input_data, dtype=tf.float32)
+    input_data_tensor = tf.expand_dims(input_data, 0)
+    tf.print(input_data_tensor)
     if(state['moves']> state['memory']):
         with tf.GradientTape() as tape:
-            input_data = np.concatenate((state['prev_moves_you'], state['prev_moves_opponent']))
+            tape.watch(state['model'].trainable_weights)
             
-            if len(state['prediction'])> 0:
-                target = state['prediction'].copy()
+            state['prediction'] = state['model'](input_data_tensor)
+            print('Predition')
+            tf.print(state['prediction'])
+            tf.print(state['prediction'].shape)
+            #target = tf.identity(state['prediction'])
             
 
-                target[0] = rewardVector(prev)
-                #Predictions represents the expectation of reward per action per state 
+            target = tf.expand_dims(rewardVector(prev),0)
+            tf.print(target)
+            tf.print(target.shape)
+            #Predictions represents the expectation of reward per action per state 
 
-                loss = keras.losses.mean_squared_error(target, state['prediction'])
-                tf.print(loss)
-                tape.watch(state['model'].trainable_weights)
-                grads = tape.gradient(loss[0], state['model'].trainable_weights)
-                tf.print(grads)
-                tf.print(state['model'].trainable_weights)
-                state['optimizer'].apply_gradients(zip(grads, state['model'].trainable_weights))
+            loss = keras.losses.mean_squared_error(target, state['prediction'])
+            tf.print(target)
+            tf.print(target)
+            
+            tf.print(loss)
+            #inputTensor = tf.convert_to_tensor( input_data,dtype=tf.float32)
+            #tape.watch(inputTensor)
+        
+            grads = tape.gradient(loss, state['model'].trainable_weights, unconnected_gradients='none')
+            #tf.print(state['model'].trainable_weights)
+
+            tf.print(grads)
+            #tf.print(state['model'].trainable_weights)
+            state['optimizer'].apply_gradients(zip(grads, state['model'].trainable_weights))
 
 
 
         state['prev_moves_opponent'].append(rpsMap[prev])
         input_data = np.concatenate((np.array(state['prev_moves_opponent']), np.array(state['prev_moves_you'])))
         input_data = input_data.reshape(1, 2*state['memory'])
-        state['prediction'] = state['model'].predict(np.array(input_data))
         
         nextMove = rpsVector[np.argmax(state['prediction'][0])]
     else:
-        if prev != '' :
-            state['prev_moves_opponent'].append(rpsMap[prev])
         nextMove = rpsVector[np.random.randint(0,3)]
     
     state['prev_moves_you'].append(rpsMap[nextMove])
