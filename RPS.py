@@ -70,53 +70,54 @@ def initState(n):
 
 
 def play(prev,state):
-    if prev != '' :
-        state['prev_moves_opponent'].append(rpsMap[prev])
-
-    input_data = np.concatenate((state['prev_moves_you'], state['prev_moves_opponent']))
-    #input_data_tensor = tf.constant(input_data, dtype=tf.float32)
-    input_data_tensor = tf.expand_dims(input_data, 0)
-    tf.print(input_data_tensor)
-    if(state['moves']> state['memory']):
-        with tf.GradientTape() as tape:
-            tape.watch(state['model'].trainable_weights)
-            
-            state['prediction'] = state['model'](input_data_tensor)
-            print('Predition')
-            tf.print(state['prediction'])
-            tf.print(state['prediction'].shape)
-            #target = tf.identity(state['prediction'])
-            
-
-            target = tf.expand_dims(rewardVector(prev),0)
-            tf.print(target)
-            tf.print(target.shape)
-            #Predictions represents the expectation of reward per action per state 
-
-            loss = keras.losses.mean_squared_error(target, state['prediction'])
-            tf.print(target)
-            tf.print(target)
-            
-            tf.print(loss)
-            #inputTensor = tf.convert_to_tensor( input_data,dtype=tf.float32)
-            #tape.watch(inputTensor)
-        
-            grads = tape.gradient(loss, state['model'].trainable_weights, unconnected_gradients='none')
-            #tf.print(state['model'].trainable_weights)
-
-            tf.print(grads)
-            #tf.print(state['model'].trainable_weights)
-            state['optimizer'].apply_gradients(zip(grads, state['model'].trainable_weights))
-
-
-
-        state['prev_moves_opponent'].append(rpsMap[prev])
-        input_data = np.concatenate((np.array(state['prev_moves_opponent']), np.array(state['prev_moves_you'])))
-        input_data = input_data.reshape(1, 2*state['memory'])
-        
-        nextMove = rpsVector[np.argmax(state['prediction'][0])]
-    else:
+    if prev == '' :
         nextMove = rpsVector[np.random.randint(0,3)]
+    else:
+
+        state['prev_moves_opponent'].append(rpsMap[prev])
+        input_data = np.concatenate((state['prev_moves_you'], state['prev_moves_opponent']))
+        #input_data_tensor = tf.constant(input_data, dtype=tf.float32)
+        input_data_tensor = tf.expand_dims(input_data, 0)
+        
+        #tf.print(input_data_tensor)
+        
+        if(state['moves']>state['memory']):
+            with tf.GradientTape() as tape:
+                
+                tape.watch(state['model'].trainable_weights)
+                
+                #Predictions represents the expectation of reward per action per state (previous plays) 
+                state['prediction'] = state['model'](input_data_tensor)
+                #print('Predition')
+                #tf.print(state['prediction'])
+                #tf.print(state['prediction'].shape)
+                #target = tf.identity(state['prediction'])
+                
+
+                target = tf.expand_dims(rewardVector(prev),0)
+                #tf.print(target)
+                #tf.print(target.shape)
+
+                loss = keras.losses.mean_squared_error(target, state['prediction'])            
+                #tf.print(loss)
+                #inputTensor = tf.convert_to_tensor( input_data,dtype=tf.float32)
+            
+                grads = tape.gradient(loss, state['model'].trainable_weights, unconnected_gradients='none')
+                #tf.print(state['model'].trainable_weights)
+
+                #tf.print(grads)
+
+                state['optimizer'].apply_gradients(zip(grads, state['model'].trainable_weights))
+
+
+
+            state['prev_moves_opponent'].append(rpsMap[prev])
+            input_data = np.concatenate((np.array(state['prev_moves_opponent']), np.array(state['prev_moves_you'])))
+            input_data = input_data.reshape(1, 2*state['memory'])
+            
+            nextMove = rpsVector[np.argmax(state['prediction'][0])]
+        else:
+            nextMove = rpsVector[np.random.randint(0,3)]
     
     state['prev_moves_you'].append(rpsMap[nextMove])
     state['moves'] += 1
