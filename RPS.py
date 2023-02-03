@@ -32,7 +32,7 @@ def rewardVector(opponentPlay):
 
 
 def player(prev_play, state=[]):
-    n = 6
+    n = 3
     if len(state) == 0:
         state.append(initState(n))
     else:
@@ -46,23 +46,22 @@ def initState(n):
     markov = np.zeros((2, 3, 3))
     lenMarkov = len(markov.ravel())
 
-    learningRate = 0.0012
+    learningRate = 0.0007
 
     model = keras.Sequential()
 
     model.add(keras.layers.Dense(
         96,  activation='relu',
         input_shape=(2*n+lenMarkov,),
-        kernel_regularizer=tf.keras.regularizers.L1(0.05)
+        kernel_regularizer=tf.keras.regularizers.L2(0.002)
     ))
 
-    #model.add(keras.layers.Dense(8, activation='relu',
+    # model.add(keras.layers.Dense(8, activation='relu',
     #                             kernel_regularizer=tf.keras.regularizers.L1(0.03)))
 
-                                 
     model.add(keras.layers.Dense(3, activation='linear',
-                           kernel_regularizer=tf.keras.regularizers.L1(0.035))
-    )
+                                 kernel_regularizer=tf.keras.regularizers.L1(0.035))
+              )
 
     prev_moves_you = deque(maxlen=n)
     prev_moves_opponent = deque(maxlen=n)
@@ -133,10 +132,12 @@ def play(prev, state):
             nextMove = rpsVector[np.random.randint(0, 3)]
 
     if state['moves'] >= 2:
-        state['markov'][0, state['prev_moves_opponent']
-                        [-2], state['prev_moves_opponent'][-1]] += 1
-        state['markov'][1, state['prev_moves_you']
-                        [-2], state['prev_moves_you'][-1]] += 1
+        state['markov'][0,
+                        state['prev_moves_opponent'][-2],
+                        state['prev_moves_opponent'][-1]] += 1
+        state['markov'][1,
+                        state['prev_moves_you'][-2],
+                        state['prev_moves_you'][-1]] += 1
     state['prev_moves_you'].append(rpsMap[nextMove])
     state['moves'] += 1
     return nextMove
