@@ -4,7 +4,8 @@ from collections import deque
 import numpy as np
 from tensorflow import keras
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '4'
+import matplotlib.pyplot as plt
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 # Look at input shape
@@ -37,6 +38,7 @@ def player(prev_play, state=[]):
         state.append(initState(n))
     else:
         if prev_play == '':
+            graphError(state[0]['lossData'])
             state[0] = initState(n)
     return play(prev_play, state[0])
 
@@ -53,12 +55,13 @@ def initState(n):
 
     model.add(keras.layers.Dense(
         96,  activation='relu',
-        input_shape=(2*n+6,),
-        kernel_regularizer=tf.keras.regularizers.L2(0.002)
+        input_shape=(2*n+6,), #The number six comes from the markov chain in a giben state multiplied by 2
+        #kernel_regularizer=tf.keras.regularizers.L2(0.03)
     ))
 
-    # model.add(keras.layers.Dense(8, activation='relu',
-    #                             kernel_regularizer=tf.keras.regularizers.L1(0.03)))
+    #model.add(keras.layers.Dense(8, activation='relu',
+    #                           # kernel_regularizer=tf.keras.regularizers.L2(0.01)
+    #                            ))
 
     model.add(keras.layers.Dense(3, activation='linear',
                                  )
@@ -72,15 +75,16 @@ def initState(n):
     model.summary()
 
     print('Learning Rate: ', learningRate)
+    state = {}
     return {'prev_moves_you': prev_moves_you,
             'prev_moves_opponent': prev_moves_opponent,
             'markov': markov,
             'model': model,
             'memory': n,
             'moves': 0,
-            'prediction': [],
-            'optimizer': optimizer}
-
+            'optimizer': optimizer,
+            'lossData' : []
+    }
 
 def play(prev, state):
     if prev == '':
@@ -110,6 +114,7 @@ def play(prev, state):
 
                 loss = keras.losses.mean_squared_error(
                     target, state['prediction'])
+                state['lossData'].append(loss[0])
                 # tf.print(loss)
                 # inputTensor = tf.convert_to_tensor( input_data,dtype=tf.float32)
 
@@ -123,15 +128,25 @@ def play(prev, state):
                     zip(grads, state['model'].trainable_weights))
 
             state['prev_moves_opponent'].append(rpsMap[prev])
+            state['prev_moves_you'].append(state['last_move'])
+
             input_data_tensor = inputFromState(state)
             state['prediction'] = state['model'](input_data_tensor)
 
             nextMove = rpsVector[np.argmax(state['prediction'][0])]
         else:
             state['prev_moves_opponent'].append(rpsMap[prev])
+            state['prev_moves_you'].append(state['last_move'])
+
 
             nextMove = rpsVector[np.random.randint(0, 3)]
 
+    updateMarkov(state)
+    state['last_move'] = rpsMap[nextMove]
+    state['moves'] += 1
+    return nextMove
+
+def updateMarkov(state):
     if state['moves'] >= 2:
         state['markov'][0,
                         state['prev_moves_opponent'][-2],
@@ -139,9 +154,6 @@ def play(prev, state):
         state['markov'][1,
                         state['prev_moves_you'][-2],
                         state['prev_moves_you'][-1]] += 1
-    state['prev_moves_you'].append(rpsMap[nextMove])
-    state['moves'] += 1
-    return nextMove
 
 
 def inputFromState(state):
@@ -169,4 +181,16 @@ def probabilitiesFromMarkov(markovRow):
     else:
         markovRow = np.ones(len(markovRow))/len(markovRow)
     return markovRow
+
+def graphError(data):
+    
+
+    x = range(0,len(data))
+    y = data
+
+    plt.plot(x, y)
+    plt.xlabel('X axis')
+    plt.ylabel('Y axis')
+    plt.title('A simple line graph')
+    plt.show()
 
