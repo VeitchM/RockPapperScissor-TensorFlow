@@ -4,7 +4,7 @@ from collections import deque
 import numpy as np
 from tensorflow import keras
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '4'
 
 
 # Look at input shape
@@ -44,7 +44,8 @@ def player(prev_play, state=[]):
 def initState(n):
 
     markov = np.zeros((2, 3, 3))
-    lenMarkov = len(markov.ravel())
+    lenMarkov = len(markov.ravel()
+    )
 
     learningRate = 0.0007
 
@@ -52,7 +53,7 @@ def initState(n):
 
     model.add(keras.layers.Dense(
         96,  activation='relu',
-        input_shape=(2*n+lenMarkov,),
+        input_shape=(2*n+6,),
         kernel_regularizer=tf.keras.regularizers.L2(0.002)
     ))
 
@@ -60,7 +61,7 @@ def initState(n):
     #                             kernel_regularizer=tf.keras.regularizers.L1(0.03)))
 
     model.add(keras.layers.Dense(3, activation='linear',
-                                 kernel_regularizer=tf.keras.regularizers.L1(0.035))
+                                 )
               )
 
     prev_moves_you = deque(maxlen=n)
@@ -146,7 +147,26 @@ def play(prev, state):
 def inputFromState(state):
     input_data = np.concatenate((state['prev_moves_you'],
                                  state['prev_moves_opponent'],
-                                 state['markov'].ravel() / (state['moves'])))
+                                 movementTendencies(state)))
     input_data = tf.expand_dims(input_data, 0)
 
     return input_data
+
+def movementTendencies(state):
+    if len(state['prev_moves_opponent'])>0:
+        opponentMovementsCount = state['markov'][0,state['prev_moves_opponent'][-1]]
+        myMovementsCount = state['markov'][0,state['prev_moves_you'][-1]]
+        a = probabilitiesFromMarkov(opponentMovementsCount)
+        b = probabilitiesFromMarkov(myMovementsCount)
+    else:
+        a=b=np.zeros(3,)
+        print('entro aca')
+    return np.concatenate((a,b))
+
+def probabilitiesFromMarkov(markovRow):
+    if markovRow.sum()>0:
+        markovRow /= markovRow.sum()
+    else:
+        markovRow = np.ones(len(markovRow))/len(markovRow)
+    return markovRow
+
